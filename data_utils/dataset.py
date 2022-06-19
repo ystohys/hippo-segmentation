@@ -45,7 +45,7 @@ class HarpDataset(Dataset):
         Reason for using list of Transforms is to enable us to skip intensity transforms for hippocampus masks.
         """
         self.dir_path = dir_path
-        if isinstance(brain_side, str):
+        if not isinstance(brain_side, str):
             raise TypeError("brain_side must be a string of either 'L' or 'R'")
         self.brain_side = brain_side
         self.transforms = transforms
