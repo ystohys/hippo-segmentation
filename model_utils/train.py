@@ -3,6 +3,7 @@ import datetime
 import functools
 import logging
 import numpy as np
+import tqdm
 import torch.cuda
 from torch import nn
 import torch.optim as optim
@@ -48,7 +49,8 @@ def train_model(
         'time_elapsed_epoch': np.zeros(num_epochs)
     }
     start_time = datetime.datetime.now()
-    for epoch in range(num_epochs):
+    pbar = tqdm(range(num_epochs))
+    for epoch in pbar:
         running_loss = 0.0
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
@@ -68,6 +70,12 @@ def train_model(
         history['loss_per_epoch'][epoch] = running_loss
         history['metric_per_epoch'][epoch] = np.mean(epoch_metric)
         history['time_elapsed_epoch'][epoch] = (epoch_end - start_time).total_seconds()
+        pbar.set_description(
+            'Epoch: {0}, Train Loss: {1:.5f}, Train Metric: {2:.5f}'.format(epoch+1,
+                                                                            running_loss,
+                                                                            history['metric_per_epoch'][epoch]
+                                                                            )
+        )
 
     return history
 
