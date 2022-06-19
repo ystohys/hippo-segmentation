@@ -41,7 +41,7 @@ def train_model(
         sampler=id_sampler,
         batch_size=2
     )
-    optimizer = optim.Adam(lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'loss_per_epoch': np.zeros(num_epochs),
