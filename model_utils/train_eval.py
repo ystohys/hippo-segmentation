@@ -17,6 +17,7 @@ def start_eval(
         dir_name,
         brain_side,
         test_ids,
+        batch_size,
         verbose=False
 ):
     if model.training:
@@ -24,7 +25,7 @@ def start_eval(
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     test_set = HarpDataset(dir_name, brain_side)
     id_sampler = SubsetRandomSampler(test_ids)
-    test_loader = DataLoader(test_set, sampler=id_sampler, batch_size=2)
+    test_loader = DataLoader(test_set, sampler=id_sampler, batch_size=batch_size)
     total_loss = []
     total_metric = []
     loss_func = nn.BCEWithLogitsLoss()
@@ -50,6 +51,7 @@ def train_model(
         brain_side,
         train_ids,
         transforms,
+        batch_size,
         num_epochs,
         learning_rate=0.001
 ):
@@ -60,6 +62,7 @@ def train_model(
     :param brain_side: Side of brain that we are analysing
     :param train_ids: Subject IDs of MRI volumes and masks belonging to training set
     :param transforms: Transforms to apply for data augmentation to training images
+    :param batch_size: Batch size for training
     :param num_epochs: Number of training epochs
     :param learning_rate: Learning rate for optimizer function
     :return: History of training metric, loss, time taken
@@ -71,7 +74,7 @@ def train_model(
     train_loader = DataLoader(
         dataset=harp_dataset,
         sampler=id_sampler,
-        batch_size=2
+        batch_size=batch_size
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     loss_func = nn.BCEWithLogitsLoss()
@@ -119,6 +122,7 @@ def hocv_train_model(
         train_ids,
         val_ids,
         transforms,
+        batch_size,
         num_epochs,
         learning_rate
 ):
@@ -129,7 +133,7 @@ def hocv_train_model(
     train_loader = DataLoader(
         dataset=harp_dataset,
         sampler=id_sampler,
-        batch_size=2
+        batch_size=batch_size
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     loss_func = nn.BCEWithLogitsLoss()
@@ -159,7 +163,7 @@ def hocv_train_model(
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
 
         epoch_end = datetime.datetime.now()
-        val_loss, val_metric = start_eval(model, dir_name, brain_side, val_ids)
+        val_loss, val_metric = start_eval(model, dir_name, brain_side, batch_size, val_ids)
         history['train_loss_per_epoch'][epoch] = running_loss
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
         history['val_loss_per_epoch'][epoch] = val_loss
