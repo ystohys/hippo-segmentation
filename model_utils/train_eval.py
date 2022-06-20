@@ -79,8 +79,8 @@ def train_model(
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     loss_func = nn.BCEWithLogitsLoss()
     history = {
-        'loss_per_epoch': np.zeros(num_epochs),
-        'metric_per_epoch': np.zeros(num_epochs),
+        'train_loss_per_epoch': np.zeros(num_epochs),
+        'train_metric_per_epoch': np.zeros(num_epochs),
         'time_elapsed_epoch': np.zeros(num_epochs)
     }
     start_time = datetime.datetime.now()
@@ -108,7 +108,7 @@ def train_model(
         pbar.set_description(
             'Epoch: {0}, Train Loss: {1:.5f}, Train Metric: {2:.5f}'.format(epoch+1,
                                                                             running_loss,
-                                                                            history['metric_per_epoch'][epoch]
+                                                                            history['train_metric_per_epoch'][epoch]
                                                                             )
         )
 
