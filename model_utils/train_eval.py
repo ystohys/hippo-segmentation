@@ -163,7 +163,13 @@ def hocv_train_model(
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
 
         epoch_end = datetime.datetime.now()
-        val_loss, val_metric = start_eval(model, dir_name, brain_side, batch_size, val_ids)
+        val_loss, val_metric = start_eval(
+            model,
+            dir_name,
+            brain_side,
+            val_ids,
+            batch_size
+        )
         history['train_loss_per_epoch'][epoch] = running_loss
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
         history['val_loss_per_epoch'][epoch] = val_loss
