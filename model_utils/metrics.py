@@ -11,7 +11,7 @@ def batch_dice_metric(
     tgt_vol = tgt.detach().clone()
     batch_size = pred_vol.size(0)
 
-    pred_vol = nn.functional.sigmoid(pred_vol)
+    pred_vol = torch.sigmoid(pred_vol)
     pred_vol = (pred_vol >= 0.5).type(torch.float32)
 
     pred_flat = pred_vol.contiguous().view(batch_size, -1)
@@ -24,7 +24,6 @@ def batch_dice_metric(
     eps = sys.float_info.epsilon  # To prevent division by zero
 
     total_dice_tensor = (2.0 * intersection) / (pred_flat_sum + tgt_flat_sum + eps)
-    print(total_dice_tensor)
     mean_dice_tensor = total_dice_tensor.mean()
     mean_dice = mean_dice_tensor.item()
 
