@@ -1,8 +1,10 @@
+import os
 import collections
 import datetime
 import functools
 import logging
 import numpy as np
+import nibabel as nib
 from tqdm import tqdm
 import torch.cuda
 from torch import nn
@@ -216,4 +218,33 @@ def save_model(model, save_path=None):
         save_path = 'model_{0}.pth'.format(datetime.datetime.now().strftime('%d%m%Y_%H%M%S'))
     torch.save(model.state_dict(), save_path)
     print('Model saved at: {0}'.format(save_path))
+
+
+def model_predict(
+        model,
+        dir_name,
+        subj_id,
+        brain_side,
+        model_file=None,
+        dv='cpu'
+):
+    if isinstance(model_file, str):
+        model.load_state_dict(torch.load(model_file, map_location=torch.device(dv)))
+    model.eval()
+
+    subj = nib.load(os.path.join(dir_name, subj_id, "SMALL_{0}_{1}B.nii".format(subj_id, brain_side.upper())))
+    subj_arr = subj.get_fdata()
+    subj_tensor = torch.tensor(subj_arr, dtype=torch.float32)
+    subj_tensor = torch.unsqueeze(torch.unsqueeze(subj_tensor, 0), 0)
+
+    with torch.no_grad():
+        predicted = model(subj_tensor)
+        predicted = torch.sigmoid(predicted)
+        predicted = (predicted >= 0.5).type(torch.float32)
+        predicted = torch.squeeze(predicted)
+        pred_arr = predicted.detach().numpy()
+
+    model.train()
+    pred_nifti = nib.Nifti1Image(pred_arr, subj.affine)
+    nib.save(pred_nifti, os.path.join(dir_name, subj_id, "PRED_{0}H_{1}.nii".format(brain_side.upper(), subj_id)))
 
