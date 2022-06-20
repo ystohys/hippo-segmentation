@@ -31,6 +31,32 @@ def get_train_test_subjects(
         return train_meta, test_meta
 
 
+def split_train_subjects(
+        meta_file,
+        train_ids,
+        num_of_val,
+        random_seed
+):
+    """
+    Further split the training data into training and validation sets for cross-validation.
+    :param meta_file: CSV file containing metadata of subjects
+    :param train_ids: Subject IDs of MRIs in training set
+    :param num_of_val: Number of subjects to use for validation set
+    :param random_seed: Put an integer for reproducible results
+    :return: subject IDs of training and validation subjects
+    """
+    harp_meta = pd.read_csv(meta_file)
+    harp_meta = harp_meta.loc[harp_meta['Subject'].isin(train_ids), ['Subject', 'Group', 'Age', 'Sex']]
+    train_meta, val_meta = train_test_split(
+        harp_meta,
+        test_size=num_of_val,
+        random_state=random_seed,
+        shuffle=True,
+        stratify=harp_meta['Group']
+    )
+    return list(train_meta['Subject']), list(val_meta['Subject'])
+
+
 class HarpDataset(Dataset):
 
     def __init__(
