@@ -20,13 +20,24 @@ def start_eval(
         batch_size,
         verbose=False
 ):
+    """
+    Evaluates the model on a train/validation set, and returns the total loss (based on the entire dataset) and the
+    average metric (
+    :param model:
+    :param dir_name:
+    :param brain_side:
+    :param test_ids:
+    :param batch_size:
+    :param verbose:
+    :return:
+    """
     if model.training:
         model.eval()  # Set model to eval mode if not yet done so
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     test_set = HarpDataset(dir_name, brain_side)
     id_sampler = SubsetRandomSampler(test_ids)
     test_loader = DataLoader(test_set, sampler=id_sampler, batch_size=batch_size)
-    total_loss = []
+    total_loss = 0.0
     total_metric = []
     loss_func = nn.BCEWithLogitsLoss()
     with torch.no_grad():
@@ -34,15 +45,14 @@ def start_eval(
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             hip_pred = model(mri_vol)
-            total_loss.append(loss_func(hip_pred, hip_label).item())
+            total_loss += loss_func(hip_pred, hip_label).item()
             total_metric.append(batch_dice_metric(hip_pred, hip_label))
 
-    mean_loss = np.mean(total_loss)
-    mean_metric = np.mean(total_metric)
+    mean_metric = np.mean(total_metric)  # Average metric per subject
     model.train()  # Turns model back into training mode
     if verbose:
-        print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_metric))
-    return mean_loss, mean_metric
+        print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(total_loss, mean_metric))
+    return total_loss, mean_metric
 
 
 def train_model(

@@ -1,4 +1,5 @@
 import sys
+import matplotlib.pyplot as plt
 import torch
 from torch import nn
 
@@ -32,6 +33,29 @@ def batch_dice_metric(
 
     return mean_dice
 
+
+def plot_per_epoch(hist_dict, metrics, ylabel, title):
+    if not isinstance(metrics, (tuple, list)):
+        raise TypeError(
+            "metrics argument must be passed as a tuple (for one metric) or a list of tuples (for multiple metrics)"
+        )
+    if isinstance(metrics, tuple):
+        plt.plot(hist_dict[metrics[0]])
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xlabel('Epoch')
+        plt.legend([metrics[1]], loc='upper left')
+        plt.show()
+    elif isinstance(metrics, list):
+        legends = []
+        for m in metrics:
+            plt.plot(hist_dict[m[0]])
+            legends.append(m[1])
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xlabel('Epoch')
+        plt.legend(legends, loc='upper left')
+        plt.show()
 
 
 
