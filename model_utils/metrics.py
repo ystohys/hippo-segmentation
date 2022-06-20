@@ -1,9 +1,18 @@
 import sys
 import torch
+from torch import nn
 
 
-def batch_dice_metric(pred_vol, tgt_vol):
+def batch_dice_metric(
+        pred,  # Tensor of logits
+        tgt
+):
+    pred_vol = pred.detach().clone()
+    tgt_vol = tgt.detach().clone()
     batch_size = pred_vol.size(0)
+
+    pred_vol = nn.functional.sigmoid(pred_vol)
+    pred_vol = (pred_vol >= 0.5).type(torch.float32)
 
     pred_flat = pred_vol.contiguous().view(batch_size, -1)
     tgt_flat = tgt_vol.contiguous().view(batch_size, -1)
