@@ -3,7 +3,7 @@ import datetime
 import functools
 import logging
 import numpy as np
-import tqdm
+from tqdm import tqdm
 import torch.cuda
 from torch import nn
 import torch.optim as optim
