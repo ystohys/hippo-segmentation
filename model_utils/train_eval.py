@@ -37,7 +37,7 @@ def start_eval(
     test_set = HarpDataset(dir_name, brain_side)
     id_sampler = SubsetRandomSampler(test_ids)
     test_loader = DataLoader(test_set, sampler=id_sampler, batch_size=batch_size)
-    total_loss = 0.0
+    total_loss = []
     total_metric = []
     loss_func = nn.BCEWithLogitsLoss()
     with torch.no_grad():
@@ -45,14 +45,15 @@ def start_eval(
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             hip_pred = model(mri_vol)
-            total_loss += loss_func(hip_pred, hip_label).item()
+            total_loss.append(loss_func(hip_pred, hip_label).item())
             total_metric.append(batch_dice_metric(hip_pred, hip_label))
 
+    mean_loss = np.mean(total_loss)  # Average loss per subject
     mean_metric = np.mean(total_metric)  # Average metric per subject
     model.train()  # Turns model back into training mode
     if verbose:
-        print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(total_loss, mean_metric))
-    return total_loss, mean_metric
+        print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_metric))
+    return mean_loss, mean_metric
 
 
 def train_model(
@@ -96,7 +97,7 @@ def train_model(
     start_time = datetime.datetime.now()
     pbar = tqdm(range(num_epochs))
     for epoch in pbar:
-        running_loss = 0.0
+        running_loss = []
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
             mri_vol, hip_label = data
@@ -108,16 +109,16 @@ def train_model(
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss.append(loss.item())
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
 
         epoch_end = datetime.datetime.now()
-        history['train_loss_per_epoch'][epoch] = running_loss
+        history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average (per subject) train loss per epoch
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
         history['time_elapsed_epoch'][epoch] = (epoch_end - start_time).total_seconds()
         pbar.set_description(
             'Epoch: {0}, Train Loss: {1:.5f}, Train Metric: {2:.5f}'.format(epoch+1,
-                                                                            running_loss,
+                                                                            history['train_loss_per_epoch'][epoch],
                                                                             history['train_metric_per_epoch'][epoch]
                                                                             )
         )
@@ -157,7 +158,7 @@ def hocv_train_model(
     start_time = datetime.datetime.now()
     pbar = tqdm(range(num_epochs))
     for epoch in pbar:
-        running_loss = 0.0
+        running_loss = []
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
             mri_vol, hip_label = data
@@ -169,7 +170,7 @@ def hocv_train_model(
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss.append(loss.item())
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
 
         epoch_end = datetime.datetime.now()
@@ -180,7 +181,7 @@ def hocv_train_model(
             val_ids,
             batch_size
         )
-        history['train_loss_per_epoch'][epoch] = running_loss
+        history['train_loss_per_epoch'][epoch] = np.mean(running_loss)
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
         history['val_loss_per_epoch'][epoch] = val_loss
         history['val_metric_per_epoch'][epoch] = val_metric
@@ -189,7 +190,7 @@ def hocv_train_model(
             ('Epoch: {0}, '
              'Train Loss: {1:.5f}, Train Metric: {2:.5f}, '
              'Validation Loss: {3:.5f}, Validation Metric: {4:.5f}').format(epoch+1,
-                                                                            running_loss,
+                                                                            history['train_loss_per_epoch'][epoch],
                                                                             history['train_metric_per_epoch'][epoch],
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch]
