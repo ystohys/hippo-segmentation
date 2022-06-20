@@ -176,8 +176,8 @@ def hocv_train_model(
         history['val_metric_per_epoch'][epoch] = val_metric
         history['time_elapsed_epoch'][epoch] = (epoch_end - start_time).total_seconds()
         pbar.set_description(
-            ('Epoch: {0} \n'
-             'Train Loss: {1:.5f}, Train Metric: {2:.5f}\n'
+            ('Epoch: {0}, '
+             'Train Loss: {1:.5f}, Train Metric: {2:.5f}, '
              'Validation Loss: {3:.5f}, Validation Metric: {4:.5f}').format(epoch+1,
                                                                             running_loss,
                                                                             history['train_metric_per_epoch'][epoch],
