@@ -15,6 +15,7 @@ def batch_dice_metric(pred_vol, tgt_vol):
     eps = sys.float_info.epsilon  # To prevent division by zero
 
     total_dice_tensor = (2.0 * intersection) / (pred_flat_sum + tgt_flat_sum + eps)
+    print(total_dice_tensor)
     mean_dice_tensor = total_dice_tensor.mean()
     mean_dice = mean_dice_tensor.item()
 
