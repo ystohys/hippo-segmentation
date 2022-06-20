@@ -193,3 +193,10 @@ def skfcv_train_model(
 ):
     pass
 
+
+def save_model(model, save_path=None):
+    if not save_path:
+        save_path = 'model_{0}.pth'.format(datetime.datetime.now().strftime('%d%m%Y_%H%M%S'))
+    torch.save(model.state_dict(), save_path)
+    print('Model saved at: {0}'.format(save_path))
+
