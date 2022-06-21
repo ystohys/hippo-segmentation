@@ -4,8 +4,10 @@ import datetime
 import functools
 import logging
 import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold
 import nibabel as nib
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import torch.cuda
 from torch import nn
 import torch.optim as optim
@@ -203,14 +205,49 @@ def hocv_train_model(
 
 
 def skfcv_train_model(
-        model,
+        model_class,  # Must be model class, not actual model instance
         dir_name,
+        brain_side,
+        meta_file,
         train_ids,
         transforms,
+        batch_size,
         num_epochs,
-        learning_rate
+        learning_rate,
+        kfold=5,
+        random_seed=42
 ):
-    pass
+    harp_meta = pd.read_csv(meta_file)
+    train_meta = harp_meta.loc[harp_meta['Subject'].isin(train_ids), ['Subject', 'Group', 'Age', 'Sex']]
+    skf = StratifiedKFold(n_splits=kfold, random_state=random_seed, shuffle=True)
+    total_hist = {
+        'train_loss_per_epoch': [],
+        'train_metric_per_epoch': [],
+        'val_loss_per_epoch': [],
+        'val_metric_per_epoch': [],
+        'time_elapsed_epoch': []
+    }
+    for fold_num, train_test_idx in enumerate(skf.split(train_meta['Subject'], train_meta['Group'])):
+        print('Fold {0}'.format(fold_num+1))
+        tr_train_ids = list(train_meta.iloc[train_test_idx[0], :].loc[:, 'Subject'])
+        tr_val_ids = list(train_meta.iloc[train_test_idx[1], :].loc[:, 'Subject'])
+        tmp_model = model_class(1)
+        fold_history = hocv_train_model(tmp_model,
+                                        dir_name,
+                                        brain_side,
+                                        tr_train_ids,
+                                        tr_val_ids,
+                                        transforms,
+                                        batch_size,
+                                        num_epochs,
+                                        learning_rate)
+        for i in total_hist.keys():
+            total_hist[i].append(fold_history[i])
+
+    for s in total_hist.keys():
+        total_hist[s] = np.array(total_hist[s])
+
+    return total_hist
 
 
 def save_model(model, save_path=None):
