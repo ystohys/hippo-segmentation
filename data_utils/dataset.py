@@ -104,7 +104,6 @@ class HarpDataset(Dataset):
         hip_label = np.expand_dims(np.asarray(nib.load(label_path).dataobj), 0)
 
         mri_vol = mri_vol.astype(np.float32, casting='same_kind')
-        # hip_label = hip_label.astype(np.uint8)
         hip_label = hip_label.astype(np.float32, casting='same_kind')
 
         mri_tensor = torch.from_numpy(mri_vol)
@@ -112,9 +111,14 @@ class HarpDataset(Dataset):
 
         if self.transforms:
             for transform in self.transforms:
-                mri_tensor = transform(mri_tensor)
-                if not isinstance(transform, IntensityTransform):
-                    hip_tensor = transform(hip_tensor)
+                tmp_mri = tio.Subject(default_image_name=tio.ScalarImage(tensor=mri_tensor, type=tio.INTENSITY))
+                tmp_mri = transform(tmp_mri)
+                fixed_transform = tmp_mri.get_applied_transforms()[0]
+                mri_tensor = tmp_mri['default_image_name'].tensor
+                if not isinstance(fixed_transform, IntensityTransform):
+                    tmp_hip = tio.Subject(default_image_name=tio.LabelMap(tensor=hip_tensor, type=tio.LABEL))
+                    tmp_hip = fixed_transform(tmp_hip)
+                    hip_tensor = tmp_hip['default_image_name'].tensor
 
         return mri_tensor, hip_tensor
 
