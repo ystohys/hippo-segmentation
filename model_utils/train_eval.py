@@ -204,8 +204,8 @@ def hocv_train_model(
         #                   'Val Loss': history['val_loss_per_epoch'][epoch],
         #                   'Val Metric': history['val_metric_per_epoch'][epoch]})
         pbar.set_postfix_str(
-            ('Train Loss: {1:.5f}, Train Metric: {2:.5f}, '
-             'Validation Loss: {3:.5f}, Validation Metric: {4:.5f}').format(history['train_loss_per_epoch'][epoch],
+            ('Train Loss: {0:.5f}, Train Metric: {1:.5f}, '
+             'Validation Loss: {2:.5f}, Validation Metric: {3:.5f}').format(history['train_loss_per_epoch'][epoch],
                                                                             history['train_metric_per_epoch'][epoch],
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch])
