@@ -191,15 +191,19 @@ def hocv_train_model(
         history['val_metric_per_epoch'][epoch] = val_metric
         history['time_elapsed_epoch'][epoch] = (epoch_end - start_time).total_seconds()
         pbar.set_description(
-            ('Epoch: {0}, '
-             'Train Loss: {1:.5f}, Train Metric: {2:.5f}, '
-             'Validation Loss: {3:.5f}, Validation Metric: {4:.5f}').format(epoch+1,
-                                                                            history['train_loss_per_epoch'][epoch],
-                                                                            history['train_metric_per_epoch'][epoch],
-                                                                            history['val_loss_per_epoch'][epoch],
-                                                                            history['val_metric_per_epoch'][epoch]
-                                                                            )
+            ('Epoch: {0}, '.format(epoch+1))
+             # 'Train Loss: {1:.5f}, Train Metric: {2:.5f}, '
+             # 'Validation Loss: {3:.5f}, Validation Metric: {4:.5f}').format(epoch+1,
+             #                                                                history['train_loss_per_epoch'][epoch],
+             #                                                                history['train_metric_per_epoch'][epoch],
+             #                                                                history['val_loss_per_epoch'][epoch],
+             #                                                                history['val_metric_per_epoch'][epoch]
+             #                                                                )
         )
+        pbar.set_postfix({'Train Loss': history['train_loss_per_epoch'][epoch],
+                          'Train Metric': history['train_metric_per_epoch'][epoch],
+                          'Val Loss': history['val_loss_per_epoch'][epoch],
+                          'Val Metric': history['val_metric_per_epoch'][epoch]})
 
     return history
 
