@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from torch import nn
@@ -55,6 +56,19 @@ def plot_per_epoch(hist_dict, metrics, ylabel, title):
         plt.ylabel(ylabel)
         plt.xlabel('Epoch')
         plt.legend(legends, loc='upper left')
+        plt.show()
+
+
+def plot_val_per_epoch(hist_dict, metrics, ylabel, title):
+    if isinstance(metrics, tuple):
+        metric_mean = np.mean(hist_dict[metrics[0]], axis=0)
+        metric_std = np.std(hist_dict[metrics[0]], axis=0)
+        plt.plot(np.arange(len(metric_mean), metric_mean))
+        plt.fill_between(np.arange(len(metric_mean)), metric_mean+metric_std, metric_mean-metric_std)
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xlabel('Epoch')
+        plt.legend([metrics[1]], loc='upper left')
         plt.show()
 
 

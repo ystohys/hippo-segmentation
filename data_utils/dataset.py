@@ -122,5 +122,3 @@ class HarpDataset(Dataset):
 
         return mri_tensor, hip_tensor
 
-
-

@@ -1,6 +1,6 @@
+import collections
 import torch
 from torch import nn
-import collections
 
 
 class UNet(nn.Module):
