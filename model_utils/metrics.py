@@ -5,6 +5,27 @@ import torch
 from torch import nn
 
 
+def per_slice_dice_stats(
+        pred,
+        tgt
+):
+    pred_slice = pred.detach().clone()
+    tgt_slice = tgt.detach().clone()
+    batch_size = pred_slice.size(0)
+
+    pred_slice = torch.sigmoid(pred_slice)
+    pred_slice = (pred_slice >= 0.5).type(torch.float32)
+
+    pred_flat = pred_slice.contiguous().view(batch_size, -1)
+    tgt_flat = tgt_slice.contiguous().view(batch_size, -1)
+
+    true_positives = (pred_flat * tgt_flat).sum(dim=1)
+    false_positives = pred_flat.sum(dim=1) - true_positives
+    false_negatives = tgt_flat.sum(dim=1) - true_positives
+
+    return true_positives, false_positives, false_negatives
+
+
 def batch_dice_metric(
         pred,  # Tensor of logits
         tgt
