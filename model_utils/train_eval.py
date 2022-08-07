@@ -401,8 +401,8 @@ def train_2d_model(
             running_loss.append(per_subject_loss)
             print(tp.shape)
             total_dice = (2 * tp) / ((2*tp) + fp + fn)
-            per_subject_dice = torch.mean(total_dice)
-            epoch_metric.append(per_subject_dice.cpu().data().numpy())
+            per_subject_dice = total_dice.mean()
+            epoch_metric.append(per_subject_dice.item())
 
         epoch_end = datetime.datetime.now()
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average (per subject) train loss per epoch
