@@ -401,7 +401,6 @@ def train_2d_model(
                 fp += slice_fp
                 fn += slice_fn
             running_loss.append(per_subject_loss)
-            print(tp.shape)
             total_dice = (2 * tp) / ((2*tp) + fp + fn)
             per_subject_dice = total_dice.mean()
             epoch_metric.append(per_subject_dice.item())
