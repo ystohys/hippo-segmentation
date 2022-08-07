@@ -125,7 +125,7 @@ def train_model(
 
         epoch_end = datetime.datetime.now()
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average (per subject) train loss per epoch
-        history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
+        history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)  # Average (per subject) DICE score per epoch
         history['time_elapsed_epoch'][epoch] = (epoch_end - start_time).total_seconds()
         pbar.set_description(
             'Epoch: {0}, Train Loss: {1:.5f}, Train Metric: {2:.5f}'.format(epoch+1,
@@ -375,7 +375,7 @@ def train_2d_model(
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
             per_subject_loss = 0  # For one subject
-            tp, fp, fn = 0, 0, 0
+            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             for slice_idx in range(VIEW_SLICES[view]):
@@ -399,8 +399,10 @@ def train_2d_model(
                 fp += slice_fp
                 fn += slice_fn
             running_loss.append(per_subject_loss)
-            per_subject_dice = (2 * tp) / ((2*tp) + fp + fn)
-            epoch_metric.append(per_subject_dice)
+            print(tp.shape)
+            total_dice = (2 * tp) / ((2*tp) + fp + fn)
+            per_subject_dice = torch.mean(total_dice)
+            epoch_metric.append(per_subject_dice.cpu().data().numpy())
 
         epoch_end = datetime.datetime.now()
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average (per subject) train loss per epoch
