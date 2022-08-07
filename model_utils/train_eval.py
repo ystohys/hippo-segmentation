@@ -376,6 +376,7 @@ def train_2d_model(
         for i, data in enumerate(train_loader):
             per_subject_loss = 0  # For one subject
             tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             for slice_idx in range(VIEW_SLICES[view]):
