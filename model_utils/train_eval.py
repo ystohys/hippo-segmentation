@@ -395,6 +395,7 @@ def train_2d_model(
                 optimizer.step()
                 per_subject_loss += loss.item()
                 slice_tp, slice_fp, slice_fn = per_slice_dice_stats(hip_pred, hip_lab_slice)
+                slice_tp, slice_fp, slice_fn = slice_tp.to(device), slice_fp.to(device), slice_fn.to(device)
                 tp += slice_tp
                 fp += slice_fp
                 fn += slice_fn
