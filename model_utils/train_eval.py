@@ -447,14 +447,13 @@ def hocv_train_2d_model(
         brain_side,
         train_ids,
         val_ids,
-        transforms,
         batch_size,
         num_epochs,
         learning_rate
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
-    harp_dataset = HarpDataset(dir_name, brain_side, transforms)
+    harp_dataset = HarpDataset(dir_name, brain_side)
     id_sampler = SubsetRandomSampler(train_ids)
     train_loader = DataLoader(
         dataset=harp_dataset,
