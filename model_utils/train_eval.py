@@ -13,7 +13,7 @@ from torch import nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from data_utils.dataset import HarpDataset
-from model_utils.metrics import batch_dice_metric, per_slice_dice_stats
+from model_utils.metrics import get_dice, batch_dice_metric, per_slice_dice_stats
 
 
 VIEW_SLICES = {
@@ -28,7 +28,7 @@ def start_eval(
         dir_name,
         brain_side,
         test_ids,
-        batch_size,
+        batch_size=1,
         verbose=False
 ):
     """
@@ -116,7 +116,7 @@ def train_model(
             optimizer.zero_grad()
 
             hip_pred = model(mri_vol)
-            loss = loss_func(hip_pred, hip_label)
+            loss = loss_func(hip_pred, hip_label)  # Note reduction = "mean" here which is the default
             loss.backward()
             optimizer.step()
 
@@ -189,8 +189,7 @@ def hocv_train_model(
             model,
             dir_name,
             brain_side,
-            val_ids,
-            batch_size
+            val_ids
         )
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)
@@ -302,7 +301,7 @@ def start_2d_eval(
         dir_name,
         brain_side,
         test_ids,
-        batch_size,
+        batch_size=1,
         verbose=False
 ):
     if model.training:
@@ -316,14 +315,36 @@ def start_2d_eval(
     loss_func = nn.BCEWithLogitsLoss()
     with torch.no_grad():
         for data in test_loader:
+            per_subject_loss = 0
+            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            hip_pred = model(mri_vol)
-            total_loss.append(loss_func(hip_pred, hip_label).item())
-            total_metric.append(batch_dice_metric(hip_pred, hip_label))
+            for slice_idx in range(VIEW_SLICES[view]):
+                if view == 0:
+                    mri_vol_slice = mri_vol[:,:,slice_idx,:,:]
+                    hip_lab_slice = hip_label[:,:,slice_idx,:,:]
+                elif view == 1:
+                    mri_vol_slice = mri_vol[:,:,:,slice_idx,:]
+                    hip_lab_slice = mri_vol[:,:,:,slice_idx,:]
+                elif view == 2:
+                    mri_vol_slice = mri_vol[:,:,:,:,slice_idx]
+                    hip_lab_slice = mri_vol[:,:,:,:,slice_idx]
+                hip_pred = model(mri_vol_slice)
+                per_subject_loss += loss_func(hip_pred, hip_lab_slice).item()
+                slice_tp, slice_fp, slice_fn = per_slice_dice_stats(hip_pred, hip_lab_slice)
+                slice_tp, slice_fp, slice_fn = slice_tp.to(device), slice_fp.to(device), slice_fn.to(device)
+                tp += slice_tp
+                fp += slice_fp
+                fn += slice_fn
 
-    mean_loss = np.mean(total_loss)  # Average loss per SLICE
-    mean_metric = np.mean(total_metric)  # Average metric per SLICE
+            total_loss.append(per_subject_loss)
+            total_dice = get_dice(tp, fp, fn)
+            per_subject_dice = total_dice.mean()
+            total_metric.append(per_subject_dice.item())
+
+    mean_loss = np.mean(total_loss)  # Average loss per SUBJECT
+    mean_metric = np.mean(total_metric)  # Average metric per SUBJECT
     model.train()  # Turns model back into training mode
     if verbose:
         print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_metric))
@@ -401,7 +422,7 @@ def train_2d_model(
                 fp += slice_fp
                 fn += slice_fn
             running_loss.append(per_subject_loss)
-            total_dice = (2 * tp) / ((2*tp) + fp + fn)
+            total_dice = get_dice(tp, fp, fn)
             per_subject_dice = total_dice.mean()
             epoch_metric.append(per_subject_dice.item())
 
@@ -455,6 +476,9 @@ def hocv_train_2d_model(
         running_loss = []
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
+            per_subject_loss = 0
+            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             for slice_idx in range(VIEW_SLICES[view]):
@@ -472,16 +496,23 @@ def hocv_train_2d_model(
                 loss = loss_func(hip_pred, hip_lab_slice)
                 loss.backward()
                 optimizer.step()
-                running_loss.append(loss.item())
-                epoch_metric.append(batch_dice_metric(hip_pred, hip_lab_slice))
+                per_subject_loss += loss.item()
+                slice_tp, slice_fp, slice_fn = per_slice_dice_stats(hip_pred, hip_lab_slice)
+                slice_tp, slice_fp, slice_fn = slice_tp.to(device), slice_fp.to(device), slice_fn.to(device)
+                tp += slice_tp
+                fp += slice_fp
+                fn += slice_fn
+            running_loss.append(per_subject_loss)
+            total_dice = get_dice(tp, fp, fn)
+            per_subject_dice = total_dice.mean()
+            epoch_metric.append(per_subject_dice.item())
 
         epoch_end = datetime.datetime.now()
         val_loss, val_metric = start_2d_eval(
             model,
             dir_name,
             brain_side,
-            val_ids,
-            batch_size
+            val_ids
         )
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average loss per SLICE
         history['train_metric_per_epoch'][epoch] = np.mean(epoch_metric)  # Average metric per SLICE

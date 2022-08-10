@@ -5,6 +5,11 @@ import torch
 from torch import nn
 
 
+def get_dice(tp, fp, fn):
+    dice = (2 * tp) / ((2 * tp) + fp + fn)
+    return dice
+
+
 def per_slice_dice_stats(
         pred,
         tgt
