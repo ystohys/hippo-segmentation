@@ -509,6 +509,7 @@ def hocv_train_2d_model(
         epoch_end = datetime.datetime.now()
         val_loss, val_metric = start_2d_eval(
             model,
+            view,
             dir_name,
             brain_side,
             val_ids
