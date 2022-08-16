@@ -161,7 +161,7 @@ def hocv_train_model(
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                     mode='max',
+                                                     mode='min',
                                                      factor=0.1,
                                                      patience=10,
                                                      threshold=1e-4
@@ -212,7 +212,7 @@ def hocv_train_model(
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch])
         )
-        scheduler.step(val_metric)
+        scheduler.step(val_loss)
 
     return history
 
@@ -473,7 +473,7 @@ def hocv_train_2d_model(
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                     mode='max',
+                                                     mode='min',
                                                      factor=0.1,
                                                      patience=10,
                                                      threshold=1e-4
@@ -544,7 +544,7 @@ def hocv_train_2d_model(
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch])
         )
-        scheduler.step(val_metric)
+        scheduler.step(val_loss)
 
     return history
 
