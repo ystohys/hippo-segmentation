@@ -163,7 +163,7 @@ def hocv_train_model(
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                      mode='max',
                                                      factor=0.1,
-                                                     patience=5,
+                                                     patience=10,
                                                      threshold=1e-4
                                                      )
     loss_func = nn.BCEWithLogitsLoss()
@@ -475,7 +475,7 @@ def hocv_train_2d_model(
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                      mode='max',
                                                      factor=0.1,
-                                                     patience=5,
+                                                     patience=10,
                                                      threshold=1e-4
                                                      )
     loss_func = nn.BCEWithLogitsLoss()
