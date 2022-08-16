@@ -68,7 +68,8 @@ def decoding_block(in_features, out_features, activate='relu'):
         nn.Conv2d(in_features, out_features, kernel_size=3, padding=1),
         nn.BatchNorm2d(out_features),
         activations[activate],
-        nn.ConvTranspose2d(out_features, out_features, kernel_size=2, stride=2)
+        nn.ConvTranspose2d(out_features, out_features, kernel_size=2, stride=2),
+        nn.Dropout2d()
     )
 
     return up_conv_block

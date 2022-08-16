@@ -89,12 +89,31 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title):
     if isinstance(metrics, tuple):
         metric_mean = np.mean(hist_dict[metrics[0]], axis=0)
         metric_std = np.std(hist_dict[metrics[0]], axis=0)
-        plt.plot(np.arange(len(metric_mean), metric_mean))
-        plt.fill_between(np.arange(len(metric_mean)), metric_mean+metric_std, metric_mean-metric_std)
+        plt.plot(np.arange(len(metric_mean)), metric_mean)
+        plt.fill_between(x=np.arange(len(metric_mean)),
+                         y1=metric_mean+metric_std,
+                         y2=metric_mean-metric_std,
+                         alpha=0.5)
         plt.title(title)
         plt.ylabel(ylabel)
         plt.xlabel('Epoch')
         plt.legend([metrics[1]], loc='upper left')
+        plt.show()
+    elif isinstance(metrics, list):
+        legends = []
+        for m in metrics:
+            metric_mean = np.mean(hist_dict[m[0]], axis=0)
+            metric_std = np.std(hist_dict[m[0]], axis=0)
+            plt.plot(np.arange(len(metric_mean)), metric_mean)
+            plt.fill_between(x=np.arange(len(metric_mean)),
+                             y1=metric_mean+metric_std,
+                             y2=metric_mean-metric_std,
+                             alpha=0.5)
+            legends.append(m[1])
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xlabel('Epoch')
+        plt.legend(legends, loc='upper left')
         plt.show()
 
 

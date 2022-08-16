@@ -32,8 +32,8 @@ def start_eval(
         verbose=False
 ):
     """
-    Evaluates the model on a train/validation set, and returns the total loss (based on the entire dataset) and the
-    average metric
+    Evaluates the model on a test/validation set, and returns the average loss and the
+    average metric (per-subject)
     :param model:
     :param dir_name:
     :param brain_side:
@@ -61,10 +61,12 @@ def start_eval(
 
     mean_loss = np.mean(total_loss)  # Average loss per subject
     mean_metric = np.mean(total_metric)  # Average metric per subject
+    std_loss = np.std(total_loss)  # Standard deviation of loss across all subjects
+    std_metric = np.std(total_metric)  # Standard deviation of metric across all subjects
     model.train()  # Turns model back into training mode
     if verbose:
         print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_metric))
-    return mean_loss, mean_metric
+    return mean_loss, mean_metric, std_loss, std_metric
 
 
 def train_model(
@@ -158,6 +160,12 @@ def hocv_train_model(
         batch_size=batch_size
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                     mode='max',
+                                                     factor=0.1,
+                                                     patience=5,
+                                                     threshold=1e-4
+                                                     )
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -185,7 +193,7 @@ def hocv_train_model(
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
 
         epoch_end = datetime.datetime.now()
-        val_loss, val_metric = start_eval(
+        val_loss, val_metric, _, _ = start_eval(
             model,
             dir_name,
             brain_side,
@@ -204,6 +212,7 @@ def hocv_train_model(
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch])
         )
+        scheduler.step(val_metric)
 
     return history
 
@@ -316,7 +325,7 @@ def start_2d_eval(
     with torch.no_grad():
         for data in test_loader:
             per_subject_loss = 0
-            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0))
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
@@ -345,10 +354,12 @@ def start_2d_eval(
 
     mean_loss = np.mean(total_loss)  # Average loss per SUBJECT
     mean_metric = np.mean(total_metric)  # Average metric per SUBJECT
+    std_loss = np.std(total_loss)  # Standard deviation of loss across all subjects
+    std_metric = np.std(total_metric)  # Standard deviation of metric across all subjects
     model.train()  # Turns model back into training mode
     if verbose:
         print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_metric))
-    return mean_loss, mean_metric
+    return mean_loss, mean_metric, std_loss, std_metric
 
 
 def train_2d_model(
@@ -396,7 +407,7 @@ def train_2d_model(
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
             per_subject_loss = 0  # For one subject
-            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0))
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
@@ -461,6 +472,12 @@ def hocv_train_2d_model(
         batch_size=batch_size
     )
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                     mode='max',
+                                                     factor=0.1,
+                                                     patience=5,
+                                                     threshold=1e-4
+                                                     )
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -476,7 +493,7 @@ def hocv_train_2d_model(
         epoch_metric = collections.deque([])
         for i, data in enumerate(train_loader):
             per_subject_loss = 0
-            tp, fp, fn = torch.zeros(batch_size), torch.zeros(batch_size), torch.zeros(batch_size)
+            tp, fp, fn = torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0))
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
@@ -507,7 +524,7 @@ def hocv_train_2d_model(
             epoch_metric.append(per_subject_dice.item())
 
         epoch_end = datetime.datetime.now()
-        val_loss, val_metric = start_2d_eval(
+        val_loss, val_metric, _, _ = start_2d_eval(
             model,
             view,
             dir_name,
@@ -527,6 +544,129 @@ def hocv_train_2d_model(
                                                                             history['val_loss_per_epoch'][epoch],
                                                                             history['val_metric_per_epoch'][epoch])
         )
+        scheduler.step(val_metric)
 
     return history
+
+
+def skfcv_train_2d_model(
+        model_class,  # Must be model class, not actual model instance
+        view,
+        dir_name,
+        brain_side,
+        meta_file,
+        train_ids,
+        batch_size,
+        num_epochs,
+        learning_rate,
+        kfold=5,
+        random_seed=42
+):
+    harp_meta = pd.read_csv(meta_file)
+    train_meta = harp_meta.loc[harp_meta['Subject'].isin(train_ids), ['Subject', 'Group', 'Age', 'Sex']]
+    skf = StratifiedKFold(n_splits=kfold, random_state=random_seed, shuffle=True)
+    total_hist = {
+        'train_loss_per_epoch': [],
+        'train_metric_per_epoch': [],
+        'val_loss_per_epoch': [],
+        'val_metric_per_epoch': [],
+        'time_elapsed_epoch': []
+    }
+    for fold_num, train_test_idx in enumerate(skf.split(train_meta['Subject'], train_meta['Group'])):
+        print('Fold {0}'.format(fold_num+1))
+        tr_train_ids = list(train_meta.iloc[train_test_idx[0], :].loc[:, 'Subject'])
+        tr_val_ids = list(train_meta.iloc[train_test_idx[1], :].loc[:, 'Subject'])
+        tmp_model = model_class(1)
+        fold_history = hocv_train_2d_model(tmp_model,
+                                           view,
+                                           dir_name,
+                                           brain_side,
+                                           tr_train_ids,
+                                           tr_val_ids,
+                                           batch_size,
+                                           num_epochs,
+                                           learning_rate)
+        for i in total_hist.keys():
+            total_hist[i].append(fold_history[i])
+
+    for s in total_hist.keys():
+        total_hist[s] = np.array(total_hist[s])
+
+    return total_hist
+
+
+def start_ensemble_eval(
+        model1,
+        model2,
+        model3,
+        dir_name,
+        brain_side,
+        test_ids,
+        batch_size=1,
+        verbose=False
+):
+    """
+    Note that this function is STRICTLY for evaluating the ensemble model performance on the test set.
+    The final prediction is done by majority-voting from each of the three models. For e.g., if two of the models
+    predict a particular voxel to be hippocampus, then the final prediction will be hippocampus. Because of this
+    majority voting rule, we cannot generate an overall loss for this ensemble model, only the DICE score.
+    :param model1: model trained on first view
+    :param model2: model trained on second view
+    :param model3: model trained on third view
+    :param dir_name: directory where brain MRIs are located
+    :param brain_side: 'L' or 'R'
+    :param test_ids: IDs of subjects in the test dataset
+    :param batch_size: evaluation batch size (by default 1)
+    :param verbose: whether to print output (by default False)
+    :return:
+    """
+    if model1.training:
+        model1.eval()
+    if model2.training:
+        model2.eval()
+    if model3.training:
+        model3.eval()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    test_set = HarpDataset(dir_name, brain_side)
+    id_sampler = SubsetRandomSampler(test_ids)
+    test_loader = DataLoader(test_set, sampler=id_sampler, batch_size=batch_size)
+    total_metric = []
+    with torch.no_grad():
+        for data in test_loader:
+            tmp_pred_vol = torch.zeros(data[1].size())
+            tmp_pred_vol = tmp_pred_vol.to(device)
+            mri_vol, hip_label = data
+            mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
+            for s1 in range(VIEW_SLICES[0]):
+                mri_vol_slice = mri_vol[:,:,s1,:,:]
+                hip_logits_slice = model1(mri_vol_slice)
+                hip_prob_slice = torch.sigmoid(hip_logits_slice)
+                hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+                tmp_pred_vol[:,:,s1,:,:] += hip_pred_slice
+            for s2 in range(VIEW_SLICES[0]):
+                mri_vol_slice = mri_vol[:,:,:,s2,:]
+                hip_logits_slice = model2(mri_vol_slice)
+                hip_prob_slice = torch.sigmoid(hip_logits_slice)
+                hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+                tmp_pred_vol[:,:,:,s2,:] += hip_pred_slice
+            for s3 in range(VIEW_SLICES[0]):
+                mri_vol_slice = mri_vol[:,:,:,:,s3]
+                hip_logits_slice = model3(mri_vol_slice)
+                hip_prob_slice = torch.sigmoid(hip_logits_slice)
+                hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+                tmp_pred_vol[:,:,:,:,s3] += hip_pred_slice
+
+            pred_vol = (tmp_pred_vol >= 1.5).type(torch.float32)
+            per_subject_metric = batch_dice_metric(pred_vol, hip_label)
+            total_metric.append(per_subject_metric)
+
+    mean_metric = np.mean(total_metric)
+    model1.train()
+    model2.train()
+    model3.train()
+    if verbose:
+        print('Average metric: {0:.5f}'.format(mean_metric))
+    return mean_metric
+
+
 
