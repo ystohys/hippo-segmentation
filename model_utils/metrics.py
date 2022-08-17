@@ -85,7 +85,7 @@ def plot_per_epoch(hist_dict, metrics, ylabel, title):
         plt.show()
 
 
-def plot_val_per_epoch(hist_dict, metrics, ylabel, title):
+def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
     if isinstance(metrics, tuple):
         metric_mean = np.mean(hist_dict[metrics[0]], axis=0)
         metric_std = np.std(hist_dict[metrics[0]], axis=0)
@@ -94,6 +94,7 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title):
                          y1=metric_mean+metric_std,
                          y2=metric_mean-metric_std,
                          alpha=0.5)
+        plt.ylim(ylims)
         plt.title(title)
         plt.ylabel(ylabel)
         plt.xlabel('Epoch')
@@ -105,11 +106,12 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title):
             metric_mean = np.mean(hist_dict[m[0]], axis=0)
             metric_std = np.std(hist_dict[m[0]], axis=0)
             plt.plot(np.arange(len(metric_mean)), metric_mean)
+            legends.append(m[1])
             plt.fill_between(x=np.arange(len(metric_mean)),
                              y1=metric_mean+metric_std,
                              y2=metric_mean-metric_std,
                              alpha=0.5)
-            legends.append(m[1])
+        plt.ylim(ylims)
         plt.title(title)
         plt.ylabel(ylabel)
         plt.xlabel('Epoch')
