@@ -99,7 +99,7 @@ def train_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
@@ -165,7 +165,7 @@ def hocv_train_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
@@ -399,7 +399,7 @@ def train_2d_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
@@ -484,7 +484,7 @@ def hocv_train_2d_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
