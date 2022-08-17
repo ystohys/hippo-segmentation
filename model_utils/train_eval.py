@@ -1,8 +1,6 @@
 import os
 import collections
 import datetime
-import functools
-import logging
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
@@ -100,7 +98,13 @@ def train_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+                                            base_lr=1e-6,
+                                            max_lr=1e-1,
+                                            step_size_up=(90 // batch_size) * 3,
+                                            mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -124,6 +128,7 @@ def train_model(
 
             running_loss.append(loss.item())
             epoch_metric.append(batch_dice_metric(hip_pred, hip_label))
+            scheduler.step()
 
         epoch_end = datetime.datetime.now()
         history['train_loss_per_epoch'][epoch] = np.mean(running_loss)  # Average (per subject) train loss per epoch
@@ -159,11 +164,12 @@ def hocv_train_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
-                                            step_size_up=(72//batch_size)*3,
+                                            step_size_up=(72 // batch_size) * 3,
                                             mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
@@ -392,7 +398,13 @@ def train_2d_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+                                            base_lr=1e-6,
+                                            max_lr=1e-1,
+                                            step_size_up=(90 // batch_size) * VIEW_SLICES[view] * 3,
+                                            mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -431,6 +443,7 @@ def train_2d_model(
                 tp += slice_tp
                 fp += slice_fp
                 fn += slice_fn
+                scheduler.step()
             running_loss.append(per_subject_loss)
             total_dice = get_dice(tp, fp, fn)
             per_subject_dice = total_dice.mean()
@@ -470,7 +483,8 @@ def hocv_train_2d_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, nesterov=True)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer,
                                             base_lr=1e-6,
                                             max_lr=1e-1,
