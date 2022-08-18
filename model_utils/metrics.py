@@ -89,33 +89,39 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
     if isinstance(metrics, tuple):
         metric_mean = np.mean(hist_dict[metrics[0]], axis=0)
         metric_std = np.std(hist_dict[metrics[0]], axis=0)
-        plt.plot(np.arange(len(metric_mean)), metric_mean)
-        plt.fill_between(x=np.arange(len(metric_mean)),
-                         y1=metric_mean+metric_std,
-                         y2=metric_mean-metric_std,
-                         alpha=0.5)
-        plt.ylim(ylims)
-        plt.title(title)
-        plt.ylabel(ylabel)
-        plt.xlabel('Epoch')
-        plt.legend([metrics[1]], loc='upper left')
+        fig, ax = plt.subplots()
+        p1 = ax.plot(np.arange(len(metric_mean)), metric_mean)
+        p2 = ax.fill(np.NaN, np.NaN, 'orange', alpha=0.5)
+        ax.fill_between(x=np.arange(len(metric_mean)),
+                        y1=metric_mean+metric_std,
+                        y2=metric_mean-metric_std,
+                        alpha=0.5)
+        ax.set_ylim(ylims)
+        ax.set_title(title)
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel('Epoch')
+        ax.legend([metrics[1]], loc='upper left')
         plt.show()
     elif isinstance(metrics, list):
+        legend_obj = []
         legends = []
+        fig, ax = plt.subplots()
         for m in metrics:
             metric_mean = np.mean(hist_dict[m[0]], axis=0)
             metric_std = np.std(hist_dict[m[0]], axis=0)
-            plt.plot(np.arange(len(metric_mean)), metric_mean)
+            p1 = ax.plot(np.arange(len(metric_mean)), metric_mean)
+            p2 = ax.fill(np.NaN, np.NaN, p1[0].get_color(), alpha=0.5)
+            ax.fill_between(x=np.arange(len(metric_mean)),
+                            y1=metric_mean + metric_std,
+                            y2=metric_mean - metric_std,
+                            alpha=0.5)
+            legend_obj.append((p2[0], p1[0]))
             legends.append(m[1])
-            plt.fill_between(x=np.arange(len(metric_mean)),
-                             y1=metric_mean+metric_std,
-                             y2=metric_mean-metric_std,
-                             alpha=0.5)
-        plt.ylim(ylims)
-        plt.title(title)
-        plt.ylabel(ylabel)
-        plt.xlabel('Epoch')
-        plt.legend(legends, loc='upper left')
+        ax.set_ylim(ylims)
+        ax.set_title(title)
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel('Epoch')
+        ax.legend(legend_obj, legends, loc='upper left')
         plt.show()
 
 
