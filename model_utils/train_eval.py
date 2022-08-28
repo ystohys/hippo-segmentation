@@ -588,7 +588,7 @@ def skfcv_train_2d_model(
         print('Fold {0}'.format(fold_num+1))
         tr_train_ids = list(train_meta.iloc[train_test_idx[0], :].loc[:, 'Subject'])
         tr_val_ids = list(train_meta.iloc[train_test_idx[1], :].loc[:, 'Subject'])
-        tmp_model = model_class(1)
+        tmp_model = model_class()
         fold_history = hocv_train_2d_model(tmp_model,
                                            view,
                                            dir_name,
