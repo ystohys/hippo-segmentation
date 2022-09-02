@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+from matplotlib.transforms import blended_transform_factory
 import matplotlib.pyplot as plt
 import torch
 from torch import nn
@@ -106,6 +107,7 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
         legend_obj = []
         legends = []
         fig, ax = plt.subplots()
+        best_val = 0
         for m in metrics:
             metric_mean = np.mean(hist_dict[m[0]], axis=0)
             metric_std = np.std(hist_dict[m[0]], axis=0)
@@ -115,6 +117,24 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
                             y1=metric_mean + metric_std,
                             y2=metric_mean - metric_std,
                             alpha=0.5)
+            if 'loss' in m[0] and m[1] == 'val':
+                best_val = min(metric_mean)
+                ax.axhline(y=best_val, 
+                           xmin=0, 
+                           xmax=np.argmin(metric_mean)/len(metric_mean), 
+                           color='red', 
+                           linestyle='dashed')
+                trans = blended_transform_factory(ax.get_yticklabels()[0].get_transform(), ax.transData)
+                ax.text(x=0, y=best_val, s='{0:.4f}'.format(best_val), ha='right', va='center', c='red', transform=trans)
+            elif 'metric' in m[0] and m[1] == 'val':
+                best_val = max(metric_mean)
+                ax.axhline(y=best_val, 
+                           xmin=0, 
+                           xmax=np.argmax(metric_mean)/len(metric_mean), 
+                           color='red', 
+                           linestyle='dashed')
+                trans = blended_transform_factory(ax.get_yticklabels()[0].get_transform(), ax.transData)
+                ax.text(x=0, y=best_val, s='{0:.4f}'.format(best_val), ha='right', va='center', c='red', transform=trans)
             legend_obj.append((p2[0], p1[0]))
             legends.append(m[1])
         ax.set_ylim(ylims)
