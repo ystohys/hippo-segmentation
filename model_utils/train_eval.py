@@ -340,10 +340,10 @@ def start_2d_eval(
                     hip_lab_slice = hip_label[:,:,slice_idx,:,:]
                 elif view == 1:
                     mri_vol_slice = mri_vol[:,:,:,slice_idx,:]
-                    hip_lab_slice = mri_vol[:,:,:,slice_idx,:]
+                    hip_lab_slice = hip_label[:,:,:,slice_idx,:]
                 elif view == 2:
                     mri_vol_slice = mri_vol[:,:,:,:,slice_idx]
-                    hip_lab_slice = mri_vol[:,:,:,:,slice_idx]
+                    hip_lab_slice = hip_label[:,:,:,:,slice_idx]
                 hip_pred = model(mri_vol_slice)
                 per_subject_loss += loss_func(hip_pred, hip_lab_slice).item()
                 slice_tp, slice_fp, slice_fn = per_slice_dice_stats(hip_pred, hip_lab_slice)
