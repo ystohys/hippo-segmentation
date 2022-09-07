@@ -25,10 +25,11 @@ VIEW_SLICES = {
 # Learning rate range test #
 
 
-def lr_range_plot(loss_hist):
-    plt.plot(loss_hist)
-    plt.xlabel('Update steps')
-    plt.ylabel('Loss')
+def lr_range_plot(loss_hist, y):
+    plt.plot(loss_hist['lr'], loss_hist[y])
+    plt.xlabel('Learning rate')
+    plt.ylabel('Dice')
+    plt.xscale('log')
     plt.show()
 
 
@@ -55,11 +56,11 @@ def lr_range_test(
     optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.LinearLR(
         optimizer, 
-        start_factor=1e-7, 
+        start_factor=1e-4, 
         total_iters=num_epochs*(90//batch_size)
         )
     loss_func = nn.BCEWithLogitsLoss()
-    loss_history = []
+    loss_history = {'loss':[], 'metric':[], 'lr':[]}
     for epoch in range(num_epochs):
         for i, data in enumerate(train_loader):
             mri_vol, hip_label = data
@@ -70,8 +71,9 @@ def lr_range_test(
             loss = loss_func(hip_pred, hip_label)  # Note reduction = "mean" here which is the default
             loss.backward()
             optimizer.step()
-
-            loss_history.append(loss.item())
+            loss_history['metric'].append(batch_dice_metric(hip_pred, hip_label))
+            loss_history['loss'].append(loss.item())
+            loss_history['lr'].append(scheduler.get_last_lr())
             scheduler.step()
         
     return loss_history
@@ -100,11 +102,11 @@ def lr_range_test_2d(
     optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.LinearLR(
         optimizer, 
-        start_factor=1e-7, 
+        start_factor=1e-4, 
         total_iters=num_epochs * (90//batch_size) * VIEW_SLICES[view]
         )
     loss_func = nn.BCEWithLogitsLoss()
-    loss_history = []
+    loss_history = {'loss':[], 'metric':[], 'lr':[]}
     for epoch in range(num_epochs):
         for i, data in enumerate(train_loader):
             per_subject_loss = 0  # For one subject
@@ -123,7 +125,11 @@ def lr_range_test_2d(
                     hip_lab_slice = hip_label[:,:,:,:,slice_idx]
                 hip_pred = model(mri_vol_slice)
                 loss = loss_func(hip_pred, hip_lab_slice)
-                loss_history.append(loss.item())
+                loss_history['loss'].append(loss.item())
+                loss_history['metric'].append(batch_dice_metric(hip_pred, hip_lab_slice))
+                loss_history['lr'].append(scheduler.get_last_lr())
+                loss.backward()
+                optimizer.step()
                 scheduler.step()
         
     return loss_history
