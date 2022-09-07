@@ -11,6 +11,16 @@ def get_dice(tp, fp, fn):
     return dice
 
 
+def get_precision(tp, fp):
+    precision = tp / (tp + fp)
+    return precision
+
+
+def get_recall(tp, fn):
+    recall = tp / (tp + fn)
+    return recall
+
+
 def per_slice_dice_stats(
         pred,
         tgt
@@ -60,6 +70,64 @@ def batch_dice_metric(
         raise ValueError("Dice score is not between 0 and 1!")
 
     return mean_dice
+
+
+def batch_precision(
+        pred,  # Tensor of logits
+        tgt
+):
+    pred_vol = pred.detach().clone()
+    tgt_vol = tgt.detach().clone()
+    batch_size = pred_vol.size(0)
+
+    pred_vol = torch.sigmoid(pred_vol)
+    pred_vol = (pred_vol >= 0.5).type(torch.float32)
+
+    pred_flat = pred_vol.contiguous().view(batch_size, -1)
+    tgt_flat = tgt_vol.contiguous().view(batch_size, -1)
+
+    intersection = (pred_flat * tgt_flat).sum(dim=1)  # True positives
+    pred_flat_sum = pred_flat.sum(dim=1)  # True positives + False positives
+
+    eps = sys.float_info.epsilon  # To prevent division by zero
+
+    total_precision_tensor = (intersection) / (pred_flat_sum + eps)
+    mean_precision_tensor = total_precision_tensor.mean()
+    mean_precision = mean_precision_tensor.item()
+
+    if mean_precision < 0.0 or mean_precision > 1.0:
+        raise ValueError("Precision is not between 0 and 1!")
+
+    return mean_precision
+
+
+def batch_recall(
+        pred,  # Tensor of logits
+        tgt
+):
+    pred_vol = pred.detach().clone()
+    tgt_vol = tgt.detach().clone()
+    batch_size = pred_vol.size(0)
+
+    pred_vol = torch.sigmoid(pred_vol)
+    pred_vol = (pred_vol >= 0.5).type(torch.float32)
+
+    pred_flat = pred_vol.contiguous().view(batch_size, -1)
+    tgt_flat = tgt_vol.contiguous().view(batch_size, -1)
+
+    intersection = (pred_flat * tgt_flat).sum(dim=1)  # True positives
+    tgt_flat_sum = tgt_flat.sum(dim=1)  # True positives + False negatives
+
+    eps = sys.float_info.epsilon  # To prevent division by zero
+
+    total_recall_tensor = (intersection) / (tgt_flat_sum + eps)
+    mean_recall_tensor = total_recall_tensor.mean()
+    mean_recall = mean_recall_tensor.item()
+
+    if mean_recall < 0.0 or mean_recall > 1.0:
+        raise ValueError("Recall is not between 0 and 1!")
+
+    return mean_recall
 
 
 def plot_per_epoch(hist_dict, metrics, ylabel, title):
