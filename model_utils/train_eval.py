@@ -111,6 +111,8 @@ def lr_range_test_2d(
     for epoch in range(num_epochs):
         for i, data in enumerate(train_loader):
             per_subject_loss = 0  # For one subject
+            tp, fp, fn = torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0)), torch.zeros(data[0].size(0))
+            tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
             for slice_idx in permutation(VIEW_SLICES[view]):
@@ -126,13 +128,20 @@ def lr_range_test_2d(
                     hip_lab_slice = hip_label[:,:,:,:,slice_idx]
                 hip_pred = model(mri_vol_slice)
                 loss = loss_func(hip_pred, hip_lab_slice)
-                loss_history['loss'].append(loss.item())
-                loss_history['metric'].append(batch_dice_metric(hip_pred, hip_lab_slice))
-                loss_history['lr'].append(scheduler.get_last_lr())
+                per_subject_loss += loss.item()
                 loss.backward()
                 optimizer.step()
+                slice_tp, slice_fp, slice_fn = per_slice_dice_stats(hip_pred, hip_lab_slice)
+                slice_tp, slice_fp, slice_fn = slice_tp.to(device), slice_fp.to(device), slice_fn.to(device)
+                tp += slice_tp
+                fp += slice_fp
+                fn += slice_fn
                 scheduler.step()
-        
+            total_dice = get_dice(tp, fp, fn)
+            per_subject_dice = total_dice.mean()
+            loss_history['loss'].append(per_subject_loss)
+            loss_history['lr'].append(scheduler.get_last_lr())
+            loss_history['metric'].append(per_subject_dice.item())
     return loss_history
 
 
