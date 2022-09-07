@@ -2,6 +2,7 @@ import os
 import collections
 import datetime
 import numpy as np
+from numpy.random import permutation
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
@@ -40,7 +41,7 @@ def lr_range_test(
     train_ids,
     transforms,
     batch_size,
-    start_lr=0.01,
+    end_lr=0.01,
     num_epochs=1
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -53,10 +54,10 @@ def lr_range_test(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=end_lr, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.LinearLR(
         optimizer, 
-        start_factor=1e-4, 
+        start_factor=(1/5), 
         total_iters=num_epochs*(90//batch_size)
         )
     loss_func = nn.BCEWithLogitsLoss()
@@ -86,7 +87,7 @@ def lr_range_test_2d(
     brain_side,
     train_ids,
     batch_size,
-    start_lr=0.001,
+    end_lr=0.001,
     num_epochs=1
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,10 +100,10 @@ def lr_range_test_2d(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
+    optimizer = optim.SGD(model.parameters(), lr=end_lr, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.LinearLR(
         optimizer, 
-        start_factor=1e-4, 
+        start_factor=(1/5), 
         total_iters=num_epochs * (90//batch_size) * VIEW_SLICES[view]
         )
     loss_func = nn.BCEWithLogitsLoss()
@@ -112,7 +113,7 @@ def lr_range_test_2d(
             per_subject_loss = 0  # For one subject
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            for slice_idx in range(VIEW_SLICES[view]):
+            for slice_idx in permutation(VIEW_SLICES[view]):
                 optimizer.zero_grad()
                 if view == 0:
                     mri_vol_slice = mri_vol[:,:,slice_idx,:,:]
@@ -466,7 +467,7 @@ def start_2d_eval(
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            for slice_idx in range(VIEW_SLICES[view]):
+            for slice_idx in permutation(VIEW_SLICES[view]):
                 if view == 0:
                     mri_vol_slice = mri_vol[:,:,slice_idx,:,:]
                     hip_lab_slice = hip_label[:,:,slice_idx,:,:]
@@ -569,7 +570,7 @@ def train_2d_model(
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            for slice_idx in range(VIEW_SLICES[view]):
+            for slice_idx in permutation(VIEW_SLICES[view]):
                 optimizer.zero_grad()
                 if view == 0:
                     mri_vol_slice = mri_vol[:,:,slice_idx,:,:]
@@ -661,7 +662,7 @@ def hocv_train_2d_model(
             tp, fp, fn = tp.to(device), fp.to(device), fn.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            for slice_idx in range(VIEW_SLICES[view]):
+            for slice_idx in permutation(VIEW_SLICES[view]):
                 optimizer.zero_grad()
                 if view == 0:
                     mri_vol_slice = mri_vol[:, :, slice_idx, :, :]
@@ -803,19 +804,19 @@ def start_ensemble_eval(
             tmp_pred_vol = tmp_pred_vol.to(device)
             mri_vol, hip_label = data
             mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
-            for s1 in range(VIEW_SLICES[0]):
+            for s1 in permutation(VIEW_SLICES[0]):
                 mri_vol_slice = mri_vol[:,:,s1,:,:]
                 hip_logits_slice = model1(mri_vol_slice)
                 hip_prob_slice = torch.sigmoid(hip_logits_slice)
                 hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
                 tmp_pred_vol[:,:,s1,:,:] += hip_pred_slice
-            for s2 in range(VIEW_SLICES[0]):
+            for s2 in permutation(VIEW_SLICES[1]):
                 mri_vol_slice = mri_vol[:,:,:,s2,:]
                 hip_logits_slice = model2(mri_vol_slice)
                 hip_prob_slice = torch.sigmoid(hip_logits_slice)
                 hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
                 tmp_pred_vol[:,:,:,s2,:] += hip_pred_slice
-            for s3 in range(VIEW_SLICES[0]):
+            for s3 in permutation(VIEW_SLICES[2]):
                 mri_vol_slice = mri_vol[:,:,:,:,s3]
                 hip_logits_slice = model3(mri_vol_slice)
                 hip_prob_slice = torch.sigmoid(hip_logits_slice)
