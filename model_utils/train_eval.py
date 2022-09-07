@@ -3,6 +3,7 @@ import collections
 import datetime
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 import nibabel as nib
 from tqdm.auto import tqdm
@@ -19,6 +20,113 @@ VIEW_SLICES = {
     1: 56,
     2: 72
 }
+
+
+# Learning rate range test #
+
+
+def lr_range_plot(loss_hist):
+    plt.plot(loss_hist)
+    plt.xlabel('Update steps')
+    plt.ylabel('Loss')
+    plt.show()
+
+
+def lr_range_test(
+    model,
+    dir_name,
+    brain_side,
+    train_ids,
+    transforms,
+    batch_size,
+    start_lr=1,
+    num_epochs=10
+):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    harp_dataset = HarpDataset(dir_name, brain_side, transforms)
+    id_sampler = SubsetRandomSampler(train_ids)
+    train_loader = DataLoader(
+        dataset=harp_dataset,
+        sampler=id_sampler,
+        batch_size=batch_size
+    )
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.LinearLR(
+        optimizer, 
+        start_factor=1e-7, 
+        total_iters=num_epochs*(90//batch_size)
+        )
+    loss_func = nn.BCEWithLogitsLoss()
+    loss_history = []
+    for epoch in range(num_epochs):
+        for i, data in enumerate(train_loader):
+            mri_vol, hip_label = data
+            mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
+            optimizer.zero_grad()
+
+            hip_pred = model(mri_vol)
+            loss = loss_func(hip_pred, hip_label)  # Note reduction = "mean" here which is the default
+            loss.backward()
+            optimizer.step()
+
+            loss_history.append(loss.item())
+            scheduler.step()
+        
+    return loss_history
+
+
+def lr_range_test_2d(
+    model,
+    view,
+    dir_name,
+    brain_side,
+    train_ids,
+    batch_size,
+    start_lr=1,
+    num_epochs=10
+):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    harp_dataset = HarpDataset(dir_name, brain_side)
+    id_sampler = SubsetRandomSampler(train_ids)
+    train_loader = DataLoader(
+        dataset=harp_dataset,
+        sampler=id_sampler,
+        batch_size=batch_size
+    )
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.SGD(model.parameters(), lr=start_lr, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.LinearLR(
+        optimizer, 
+        start_factor=1e-7, 
+        total_iters=num_epochs * (90//batch_size) * VIEW_SLICES[view]
+        )
+    loss_func = nn.BCEWithLogitsLoss()
+    loss_history = []
+    for epoch in range(num_epochs):
+        for i, data in enumerate(train_loader):
+            per_subject_loss = 0  # For one subject
+            mri_vol, hip_label = data
+            mri_vol, hip_label = mri_vol.to(device), hip_label.to(device)
+            for slice_idx in range(VIEW_SLICES[view]):
+                optimizer.zero_grad()
+                if view == 0:
+                    mri_vol_slice = mri_vol[:,:,slice_idx,:,:]
+                    hip_lab_slice = hip_label[:,:,slice_idx,:,:]
+                elif view == 1:
+                    mri_vol_slice = mri_vol[:,:,:,slice_idx,:]
+                    hip_lab_slice = hip_label[:,:,:,slice_idx,:]
+                elif view == 2:
+                    mri_vol_slice = mri_vol[:,:,:,:,slice_idx]
+                    hip_lab_slice = hip_label[:,:,:,:,slice_idx]
+                hip_pred = model(mri_vol_slice)
+                loss = loss_func(hip_pred, hip_lab_slice)
+                loss_history.append(loss.item())
+                scheduler.step()
+        
+    return loss_history
 
 
 def start_eval(
@@ -75,7 +183,7 @@ def train_model(
         transforms,
         batch_size,
         num_epochs,
-        learning_rate=0.001
+        max_learn_rate
 ):
     """
     Trains the model passed on training set (no cross validation done). Model is trained in_place
@@ -99,12 +207,17 @@ def train_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-                                            base_lr=1e-6,
-                                            max_lr=1e-1,
-                                            step_size_up=(90 // batch_size) * 3,
-                                            mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
+                                              max_lr=max_learn_rate, 
+                                              epochs=num_epochs,
+                                              steps_per_epoch=(90//batch_size)
+                                              )
+    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+    #                                         base_lr=1e-6,
+    #                                         max_lr=1e-1,
+    #                                         step_size_up=(90 // batch_size) * 3,
+    #                                         mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -153,7 +266,7 @@ def hocv_train_model(
         transforms,
         batch_size,
         num_epochs,
-        learning_rate
+        max_learn_rate
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -165,12 +278,17 @@ def hocv_train_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-                                            base_lr=1e-6,
-                                            max_lr=1e-1,
-                                            step_size_up=(72 // batch_size) * 3,
-                                            mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
+                                              max_lr=max_learn_rate, 
+                                              epochs=num_epochs,
+                                              steps_per_epoch=(72//batch_size)
+                                              )
+    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+    #                                         base_lr=1e-6,
+    #                                         max_lr=1e-1,
+    #                                         step_size_up=(72 // batch_size) * 3,
+    #                                         mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -231,7 +349,7 @@ def skfcv_train_model(
         transforms,
         batch_size,
         num_epochs,
-        learning_rate,
+        max_learn_rate,
         kfold=5,
         random_seed=42
 ):
@@ -258,7 +376,7 @@ def skfcv_train_model(
                                         transforms,
                                         batch_size,
                                         num_epochs,
-                                        learning_rate)
+                                        max_learn_rate)
         for i in total_hist.keys():
             total_hist[i].append(fold_history[i])
 
@@ -375,7 +493,7 @@ def train_2d_model(
         train_ids,
         batch_size,
         num_epochs,
-        learning_rate=0.001
+        max_learn_rate
 ):
     """
     Trains the model passed on training set (no cross validation done). Model is trained in_place
@@ -399,12 +517,17 @@ def train_2d_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-                                            base_lr=1e-6,
-                                            max_lr=1e-1,
-                                            step_size_up=(90 // batch_size) * VIEW_SLICES[view] * 3,
-                                            mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
+    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+    #                                         base_lr=1e-6,
+    #                                         max_lr=1e-1,
+    #                                         step_size_up=(90 // batch_size) * VIEW_SLICES[view] * 3,
+    #                                         mode='triangular')
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
+                                              max_lr=max_learn_rate, 
+                                              epochs=num_epochs,
+                                              steps_per_epoch=(90//batch_size) * VIEW_SLICES[view]
+                                              )
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -472,7 +595,7 @@ def hocv_train_2d_model(
         val_ids,
         batch_size,
         num_epochs,
-        learning_rate
+        max_learn_rate
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -484,12 +607,17 @@ def hocv_train_2d_model(
         batch_size=batch_size
     )
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-                                            base_lr=1e-6,
-                                            max_lr=1e-1,
-                                            step_size_up=(72//batch_size)*VIEW_SLICES[view]*3,
-                                            mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
+    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
+    #                                         base_lr=1e-6,
+    #                                         max_lr=1e-1,
+    #                                         step_size_up=(72//batch_size)*VIEW_SLICES[view]*3,
+    #                                         mode='triangular')
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
+                                              max_lr=max_learn_rate, 
+                                              epochs=num_epochs,
+                                              steps_per_epoch=(72//batch_size) * VIEW_SLICES[view]
+                                              )
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -570,7 +698,7 @@ def skfcv_train_2d_model(
         train_ids,
         batch_size,
         num_epochs,
-        learning_rate,
+        max_learn_rate,
         kfold=5,
         random_seed=42
 ):
@@ -597,7 +725,7 @@ def skfcv_train_2d_model(
                                            tr_val_ids,
                                            batch_size,
                                            num_epochs,
-                                           learning_rate)
+                                           max_learn_rate)
         for i in total_hist.keys():
             total_hist[i].append(fold_history[i])
 
