@@ -194,7 +194,7 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
                            linestyle='dashed')
                 trans = blended_transform_factory(ax.get_yticklabels()[0].get_transform(), ax.transData)
                 ax.text(x=0, y=best_val, s='{0:.4f}'.format(best_val), ha='right', va='center', c='red', transform=trans)
-            elif 'metric' in m[0] and m[1] == 'val':
+            elif 'dice' in m[0] and m[1] == 'val':
                 best_val = max(metric_mean)
                 ax.axhline(y=best_val, 
                            xmin=0, 
