@@ -496,8 +496,8 @@ def start_2d_eval(
 
             total_loss.append(per_subject_loss)
             total_batch_dice = get_dice(tp, fp, fn)
-            total_batch_precision = get_precision(tp, fp, fn)
-            total_batch_recall = get_recall(tp, fp, fn)
+            total_batch_precision = get_precision(tp, fp)
+            total_batch_recall = get_recall(tp, fn)
             per_subject_dice = total_batch_dice.mean()
             per_subject_precision = total_batch_precision.mean()
             per_subject_recall = total_batch_recall.mean()
