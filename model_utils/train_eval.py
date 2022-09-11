@@ -193,7 +193,7 @@ def start_eval(
     # std_recall = np.std(total_recall)
     model.train()  # Turns model back into training mode
     if verbose:
-        print('Average loss: {0:.5f}, Average Dice: {1:.5f}'.format(mean_loss, mean_dice))
+        print('Average loss: {0:.5f}, Average Dice: {1:.5f}, Average Precision: {2:.5f}, Average Recall: {3:.5f}'.format(mean_loss, mean_dice, mean_precision, mean_recall))
     return mean_loss, mean_dice, mean_precision, mean_recall #, std_loss, std_dice, std_precision, std_recall
 
 
@@ -493,8 +493,7 @@ def start_2d_eval(
                 tp += slice_tp
                 fp += slice_fp
                 fn += slice_fn
-
-            total_loss.append(per_subject_loss)
+            total_loss.append(per_subject_loss/VIEW_SLICES[view])
             total_batch_dice = get_dice(tp, fp, fn)
             total_batch_precision = get_precision(tp, fp)
             total_batch_recall = get_recall(tp, fn)
@@ -515,7 +514,7 @@ def start_2d_eval(
     # std_recall = np.std(total_recall)
     model.train()  # Turns model back into training mode
     if verbose:
-        print('Average loss: {0:.5f}, Average metric: {1:.5f}'.format(mean_loss, mean_dice))
+        print('Average loss: {0:.5f}, Average Dice: {1:.5f}, Average Precision: {2:.5f}, Average Recall: {3:.5f}'.format(mean_loss, mean_dice, mean_precision, mean_recall))
     return mean_loss, mean_dice, mean_precision, mean_recall #, std_loss, std_dice, std_precision, std_recall
 
 
@@ -601,7 +600,7 @@ def train_2d_model(
                 fp += slice_fp
                 fn += slice_fn
                 scheduler.step()
-            running_loss.append(per_subject_loss)
+            running_loss.append(per_subject_loss/VIEW_SLICES[view])
             total_dice = get_dice(tp, fp, fn)
             per_subject_dice = total_dice.mean()
             epoch_dice.append(per_subject_dice.item())
@@ -693,7 +692,7 @@ def hocv_train_2d_model(
                 fp += slice_fp
                 fn += slice_fn
                 scheduler.step()
-            running_loss.append(per_subject_loss)
+            running_loss.append(per_subject_loss/VIEW_SLICES[view])
             total_dice = get_dice(tp, fp, fn)
             per_subject_dice = total_dice.mean()
             epoch_dice.append(per_subject_dice.item())
@@ -851,7 +850,7 @@ def start_ensemble_eval(
         print('Average Dice: {0:.5f}, Average Precision: {1:.5f}, Average Recall: {1:.5f}'.format(mean_metric, 
                                                                                                   mean_precision, 
                                                                                                   mean_recall))
-    return mean_metric
+    return mean_metric, mean_precision, mean_recall
 
 
 

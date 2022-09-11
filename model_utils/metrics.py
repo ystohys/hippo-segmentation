@@ -20,6 +20,24 @@ def get_recall(tp, fn):
     recall = tp / (tp + fn)
     return recall
 
+def get_train_time(hist, per_epoch=True, kfcv=False):
+    if kfcv:
+        per_fold = []
+        if per_epoch:
+            for fold in hist['time_elapsed_epoch']:
+                per_fold.append(fold[-1]/len(fold))
+            return np.mean(per_fold)
+        else:
+            for fold in hist['time_elapsed_epoch']:
+                per_fold.append(fold[-1])
+            return np.mean(per_fold)
+    else:
+        if per_epoch:
+            avg_time = hist['time_elapsed_epoch'][-1] / len(hist['time_elapsed_epoch'])
+            return avg_time
+        else:
+            return hist['time_elapsed_epoch'][-1]
+
 
 def per_slice_dice_stats(
         pred,
@@ -189,7 +207,8 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
                 best_val = min(metric_mean)
                 ax.axhline(y=best_val, 
                            xmin=0, 
-                           xmax=np.argmin(metric_mean)/len(metric_mean), 
+                           #xmax=np.argmin(metric_mean)/len(metric_mean), 
+                           xmax = len(metric_mean),
                            color='red', 
                            linestyle='dashed')
                 trans = blended_transform_factory(ax.get_yticklabels()[0].get_transform(), ax.transData)
@@ -198,7 +217,8 @@ def plot_val_per_epoch(hist_dict, metrics, ylabel, title, ylims):
                 best_val = max(metric_mean)
                 ax.axhline(y=best_val, 
                            xmin=0, 
-                           xmax=np.argmax(metric_mean)/len(metric_mean), 
+                           #xmax=np.argmax(metric_mean)/len(metric_mean), 
+                           xmax=len(metric_mean),
                            color='red', 
                            linestyle='dashed')
                 trans = blended_transform_factory(ax.get_yticklabels()[0].get_transform(), ax.transData)
