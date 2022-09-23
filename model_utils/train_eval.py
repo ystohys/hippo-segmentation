@@ -1,5 +1,6 @@
 import os
 import collections
+import math
 import datetime
 import numpy as np
 from numpy.random import permutation
@@ -27,6 +28,9 @@ VIEW_SLICES = {
 
 
 def lr_range_plot(loss_hist, y):
+    """
+    Visualizes the LR range test results.
+    """
     plt.plot(loss_hist['lr'], loss_hist[y])
     plt.xlabel('Learning rate')
     plt.ylabel('Dice')
@@ -40,10 +44,13 @@ def lr_range_test(
     brain_side,
     train_ids,
     transforms,
-    batch_size,
+    batch_size=4,
     end_lr=0.01,
     num_epochs=1
 ):
+    """
+    Performs the LR range test for 3D U-Net models.
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     harp_dataset = HarpDataset(dir_name, brain_side, transforms)
@@ -86,10 +93,13 @@ def lr_range_test_2d(
     dir_name,
     brain_side,
     train_ids,
-    batch_size,
+    batch_size=2,
     end_lr=0.001,
     num_epochs=1
 ):
+    """
+    Performs the LR range test but for the 2D U-Seg-Net models.
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     harp_dataset = HarpDataset(dir_name, brain_side)
@@ -217,7 +227,7 @@ def train_model(
     :param batch_size: Batch size for training
     :param num_epochs: Number of training epochs
     :param learning_rate: Learning rate for optimizer function
-    :return: History of training metric, loss, time taken
+    :return: History of training DSC, loss, time taken
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -228,18 +238,12 @@ def train_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
                                               max_lr=max_learn_rate, 
                                               epochs=num_epochs,
                                               steps_per_epoch=(90//batch_size)
                                               )
-    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-    #                                         base_lr=1e-6,
-    #                                         max_lr=1e-1,
-    #                                         step_size_up=(90 // batch_size) * 3,
-    #                                         mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -290,6 +294,9 @@ def hocv_train_model(
         num_epochs,
         max_learn_rate
 ):
+    """
+    Performs hold-out cross validation for using the given training and validation subject IDs.
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     harp_dataset = HarpDataset(dir_name, brain_side, transforms)
@@ -299,18 +306,12 @@ def hocv_train_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
                                               max_lr=max_learn_rate, 
                                               epochs=num_epochs,
                                               steps_per_epoch=(72//batch_size)
                                               )
-    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-    #                                         base_lr=1e-6,
-    #                                         max_lr=1e-1,
-    #                                         step_size_up=(72 // batch_size) * 3,
-    #                                         mode='triangular')
     loss_func = nn.BCEWithLogitsLoss()
     history = {
         'train_loss_per_epoch': np.zeros(num_epochs),
@@ -375,6 +376,10 @@ def skfcv_train_model(
         kfold=5,
         random_seed=42
 ):
+    """
+    Performs k-fold (5-fold by default) cross validation using the given training subjects.
+    Splits the training subjects into the 5 folds before performing validation.
+    """
     harp_meta = pd.read_csv(meta_file)
     train_meta = harp_meta.loc[harp_meta['Subject'].isin(train_ids), ['Subject', 'Group', 'Age', 'Sex']]
     skf = StratifiedKFold(n_splits=kfold, random_state=random_seed, shuffle=True)
@@ -423,6 +428,10 @@ def model_predict(
         model_file=None,
         dv='cpu'
 ):
+    """
+    Generates a NIfTI file containing the hippocampus segmentation mask predicted by 
+    3D U-Net.
+    """
     if isinstance(model_file, str):
         model.load_state_dict(torch.load(model_file, map_location=torch.device(dv)))
     model.eval()
@@ -549,17 +558,11 @@ def train_2d_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
-    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-    #                                         base_lr=1e-6,
-    #                                         max_lr=1e-1,
-    #                                         step_size_up=(90 // batch_size) * VIEW_SLICES[view] * 3,
-    #                                         mode='triangular')
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
                                               max_lr=max_learn_rate, 
                                               epochs=num_epochs,
-                                              steps_per_epoch=(90//batch_size) * VIEW_SLICES[view]
+                                              steps_per_epoch=math.ceil(90/batch_size) * VIEW_SLICES[view]
                                               )
     loss_func = nn.BCEWithLogitsLoss()
     history = {
@@ -639,13 +642,7 @@ def hocv_train_2d_model(
         sampler=id_sampler,
         batch_size=batch_size
     )
-    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     optimizer = optim.SGD(model.parameters(), lr=max_learn_rate, momentum=0.9, nesterov=True)
-    # scheduler = optim.lr_scheduler.CyclicLR(optimizer,
-    #                                         base_lr=1e-6,
-    #                                         max_lr=1e-1,
-    #                                         step_size_up=(72//batch_size)*VIEW_SLICES[view]*3,
-    #                                         mode='triangular')
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, 
                                               max_lr=max_learn_rate, 
                                               epochs=num_epochs,
@@ -783,15 +780,14 @@ def start_ensemble_eval(
     The final prediction is done by majority-voting from each of the three models. For e.g., if two of the models
     predict a particular voxel to be hippocampus, then the final prediction will be hippocampus. Because of this
     majority voting rule, we cannot generate an overall loss for this ensemble model, only the metrics.
-    :param model1: model trained on first view
-    :param model2: model trained on second view
-    :param model3: model trained on third view
+    :param model1: model trained on sagittal view
+    :param model2: model trained on coronal view
+    :param model3: model trained on axial view
     :param dir_name: directory where brain MRIs are located
     :param brain_side: 'L' or 'R'
     :param test_ids: IDs of subjects in the test dataset
     :param batch_size: evaluation batch size (by default 1)
     :param verbose: whether to print output (by default False)
-    :return:
     """
     if model1.training:
         model1.eval()
@@ -832,9 +828,9 @@ def start_ensemble_eval(
                 tmp_pred_vol[:,:,:,:,s3] += hip_pred_slice
 
             pred_vol = (tmp_pred_vol >= 1.5).type(torch.float32)
-            per_subject_dice = batch_dice_metric(pred_vol, hip_label)
-            per_subject_precision = batch_precision(pred_vol, hip_label)
-            per_subject_recall = batch_recall(pred_vol, hip_label)
+            per_subject_dice = ensemble_batch_dice_metric(pred_vol, hip_label)
+            per_subject_precision = ensemble_batch_precision(pred_vol, hip_label)
+            per_subject_recall = ensemble_batch_recall(pred_vol, hip_label)
 
             total_dice.append(per_subject_dice)
             total_precision.append(per_subject_precision)
@@ -847,10 +843,65 @@ def start_ensemble_eval(
     model2.train()
     model3.train()
     if verbose:
-        print('Average Dice: {0:.5f}, Average Precision: {1:.5f}, Average Recall: {1:.5f}'.format(mean_metric, 
+        print('Average Dice: {0:.5f}, Average Precision: {1:.5f}, Average Recall: {2:.5f}'.format(mean_metric, 
                                                                                                   mean_precision, 
                                                                                                   mean_recall))
     return mean_metric, mean_precision, mean_recall
 
 
+def ensemble_model_predict(
+        model1,
+        model2,
+        model3,
+        dir_name,
+        subj_id,
+        brain_side,
+        model_file=None,
+        dv='cpu'
+):
+    if isinstance(model_file, list):
+        model1.load_state_dict(torch.load(model_file[0], map_location=torch.device(dv)))
+        model2.load_state_dict(torch.load(model_file[1], map_location=torch.device(dv)))
+        model3.load_state_dict(torch.load(model_file[2], map_location=torch.device(dv)))
+    model1.eval()
+    model2.eval()
+    model3.eval()
+
+    subj = nib.load(os.path.join(dir_name, subj_id, "SMALL_{0}_{1}B.nii".format(subj_id, brain_side.upper())))
+    subj_arr = subj.get_fdata()
+    subj_tensor = torch.tensor(subj_arr, dtype=torch.float32)
+    subj_tensor = torch.unsqueeze(torch.unsqueeze(subj_tensor, 0), 0)
+
+    with torch.no_grad():
+        tmp_pred_vol = torch.zeros(subj_tensor.size())
+        tmp_pred_vol = tmp_pred_vol.to(torch.device(dv))
+        subj_tensor = subj_tensor.to(torch.device(dv))
+        for s1 in permutation(VIEW_SLICES[0]):
+            mri_vol_slice = subj_tensor[:,:,s1,:,:]
+            hip_logits_slice = model1(mri_vol_slice)
+            hip_prob_slice = torch.sigmoid(hip_logits_slice)
+            hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+            tmp_pred_vol[:,:,s1,:,:] += hip_pred_slice
+        for s2 in permutation(VIEW_SLICES[1]):
+            mri_vol_slice = subj_tensor[:,:,:,s2,:]
+            hip_logits_slice = model2(mri_vol_slice)
+            hip_prob_slice = torch.sigmoid(hip_logits_slice)
+            hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+            tmp_pred_vol[:,:,:,s2,:] += hip_pred_slice
+        for s3 in permutation(VIEW_SLICES[2]):
+            mri_vol_slice = subj_tensor[:,:,:,:,s3]
+            hip_logits_slice = model3(mri_vol_slice)
+            hip_prob_slice = torch.sigmoid(hip_logits_slice)
+            hip_pred_slice = (hip_prob_slice >= 0.5).type(torch.float32)
+            tmp_pred_vol[:,:,:,:,s3] += hip_pred_slice
+
+        pred_vol = (tmp_pred_vol >= 1.5).type(torch.float32)
+        predicted = torch.squeeze(pred_vol)
+        pred_arr = predicted.detach().numpy()
+
+    model1.train()
+    model2.train()
+    model3.train()
+    pred_nifti = nib.Nifti1Image(pred_arr, subj.affine)
+    nib.save(pred_nifti, os.path.join(dir_name, subj_id, "E_PRED_{0}H_{1}.nii".format(brain_side.upper(), subj_id)))
 
