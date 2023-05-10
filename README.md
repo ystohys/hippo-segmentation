@@ -63,12 +63,12 @@ Each folder and file in the code folder is briefly described below:
 	* unet3d.py: contains the PyTorch implementation of the 3D U-Net architecture
 	* usegnet.py: contains the PyTorcch implementation of the 2D U-Seg-Net architecture
 
-* znorm_cropped_imgs: contains the brain MRI volumes and hippocampus segmentation masks in the form of NIfTI files, after processing the HarP dataset
+* znorm_cropped_imgs: contains the brain MRI volumes and hippocampus segmentation masks in the form of NIfTI files, after processing the HarP dataset (**omitted in this repo due to data permissions**)
 
-* harp_metadata: contains background information about the subjects which the brain MRIs are taken from, such as cognitive function etc.
+* harp_metadata: contains background information about the subjects which the brain MRIs are taken from, such as cognitive function etc. (**omitted in this repo due to data permissions**)
 
-* saved_models: contains the saved models in the form of .pth files, which can be directly loaded into the PyTorch model objects
+* saved_models: contains the saved models in the form of .pth files, which can be directly loaded into the PyTorch model objects (**omitted in this repo due to data permissions**)
 
-* saved_histories: contains compressed dictionaries of numpy arrays (.npz files) that store information such as training loss and duration for each model during our experiments
+* saved_histories: contains compressed dictionaries of numpy arrays (.npz files) that store information such as training loss and duration for each model during our experiments (**omitted in this repo due to data permissions**)
 
 
